@@ -1,0 +1,63 @@
+---
+title: "Kaggle Project"
+output: html_notebook
+---
+
+This is a R markdown notebook for the Kaggle competition ["Predict Future Sales"](https://www.kaggle.com/c/competitive-data-science-predict-future-sales/overview). 
+
+## Installing and loading packages
+
+```{r}
+library(readr)
+library(tidyverse)
+install.packages("tseries")
+library(tseries)
+library(zoo)
+
+
+```
+
+## Importing the Data
+
+```{r}
+#importing main data
+df <- read_csv("data/sales_train.csv")
+shops <- read_csv("data/shops.csv")
+items <- read_csv("data/items.csv")
+item_categories <- read_csv("data/item_categories.csv")
+
+
+#taking a first look at the data
+View(df)
+View(shops)
+View(items)
+View(item_categories)
+
+#frequency count of the sales column
+as.data.frame(table(df$yearmon))
+
+head(item_categories)
+
+plot(df$item_price)
+```
+
+## Versuch mit TS Library
+
+```{r}
+#converting the data into a time series data set
+str(df)
+
+#converting date column to datetime format
+df$date <- strptime(df$date, "%d.%m.%Y")
+
+#adding a month / year column
+df$yearmon <- as.yearmon(df$date)
+
+#adding a year column
+df$year <- format(df$date, "%Y")
+
+#creating a time series dataset
+sales_ts <- ts(df, c(2013, 1), c(2015, 10), 12)
+str(sales_ts)
+```
+
