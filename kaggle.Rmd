@@ -9,11 +9,14 @@ This is a R markdown notebook for the Kaggle competition ["Predict Future Sales"
 
 ```{r}
 library(readr)
+library(dplyr)
 library(tidyverse)
 install.packages("tseries")
 library(tseries)
 library(zoo)
-
+install.packages("funModeling")
+library(funModeling)
+library(Hmisc)
 
 ```
 
@@ -38,26 +41,93 @@ as.data.frame(table(df$yearmon))
 
 head(item_categories)
 
-plot(df$item_price)
 ```
 
-## Versuch mit TS Library
+## Merging data frames
 
 ```{r}
-#converting the data into a time series data set
-str(df)
+#left join items & item_categories
+item_category_merge <- items %>% left_join(item_categories, by = "item_category_id")
+View(item_category_merge)
 
-#converting date column to datetime format
-df$date <- strptime(df$date, "%d.%m.%Y")
+#left join main dataframe with merged dataframe
+sales_items_merged <- df %>% left_join(item_category_merge, by = "item_id")
+View(sales_items_merged)
 
-#adding a month / year column
-df$yearmon <- as.yearmon(df$date)
+#merging previously created df with shops dataframe
+final_df <- sales_items_merged %>% left_join(shops, by = "shop_id")
+View(final_df)
 
-#adding a year column
-df$year <- format(df$date, "%Y")
+#comparing lengths
+(length(item_categories) + length(items)) - length(item_category_merge)
+(length(df) + length(item_category_merge)) - length(sales_items_merged)
+(length(shops) + length(sales_items_merged)) - length(final_df)
 
-#creating a time series dataset
-sales_ts <- ts(df, c(2013, 1), c(2015, 10), 12)
-str(sales_ts)
+investigating <- items %>% anti_join(item_categories, by = "item_category_id")
+View(investigating)
+
+#converting date column to date format
+final_df$date <- as.Date(final_df$date, format="%d.%m.%Y")
+
+#displaying head
+head(final_df)
+
+#details of final_df
+glimpse(final_df)
 ```
+
+
+
+
+
+
+
+
+
+
+## EDA
+
+### Looking at the data
+```{r}
+#looking at the data
+
+#head
+head(final_df, 4)
+
+#structcure
+str(final_df)
+```
+
+### Visualizing data
+```{r}
+attach(final_df)
+
+#relationship between month and sales
+monthly_sums <- final_df %>% group_by(date_block_num) %>% summarise(sum(item_cnt_day))
+
+attach(monthly_sums)
+
+ggplot(monthly_sums, aes(x = date_block_num, y = `sum(item_cnt_day)`)) +
+  geom_bar(stat  ="identity") +
+  labs(title = "Total Sales per Month", x = "Month (0 = Jan '13)", y = "Total Sales") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+```{r}
+# average item price of products purchased per month
+final_df %>% mutate(total_sales = item_cnt_day*item_price) %>% group_by(date_block_num) %>% summarise(mean_price = mean(total_sale)) %>% 
+  ggplot(., aes(x=date_block_num, y=mean_price)) +
+  geom_line() +
+  labs(title = "Average Product Price per Month", x = "Month (0 = Jan '13)", y = "Average Product Price") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+#finding the most frequently purchased item each year
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+final_df %>% mutate(year = format(date, "%Y")) %>% group_by(year) %>% summarise(most_frequent_item = Mode(item_name))
 
